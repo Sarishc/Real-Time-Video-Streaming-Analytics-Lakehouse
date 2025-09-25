@@ -1,0 +1,120 @@
+# Logging Configuration
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  default:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s() - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  json:
+    class: pythonjsonlogger.jsonlogger.JsonFormatter
+    format: '%(asctime)s %(name)s %(levelname)s %(filename)s %(lineno)d %(funcName)s %(message)s'
+  
+  colored:
+    class: colorlog.ColoredFormatter
+    format: '%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+    log_colors:
+      DEBUG: cyan
+      INFO: green
+      WARNING: yellow
+      ERROR: red
+      CRITICAL: red,bg_white
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: colored
+    stream: ext://sys.stdout
+  
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/application.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+  
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: logs/error.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+  
+  kafka_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/kafka.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 10
+  
+  spark_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/spark.log
+    maxBytes: 20971520  # 20MB
+    backupCount: 10
+  
+  monitoring_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/monitoring.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+
+loggers:
+  kafka:
+    level: INFO
+    handlers: [kafka_file, console]
+    propagate: false
+  
+  pyspark:
+    level: WARN
+    handlers: [spark_file]
+    propagate: false
+  
+  py4j:
+    level: WARN
+    handlers: [spark_file]
+    propagate: false
+  
+  delta:
+    level: INFO
+    handlers: [spark_file, console]
+    propagate: false
+  
+  snowflake:
+    level: INFO
+    handlers: [file, console]
+    propagate: false
+  
+  monitoring:
+    level: INFO
+    handlers: [monitoring_file, console]
+    propagate: false
+  
+  data_quality:
+    level: INFO
+    handlers: [file, console]
+    propagate: false
+  
+  pipeline:
+    level: INFO
+    handlers: [file, console]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console, file, error_file]

@@ -1,0 +1,125 @@
+# Video Streaming Analytics Lakehouse - GitIgnore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+notebooks/.ipynb_checkpoints
+
+# Logs
+logs/
+*.log
+
+# Data Files
+data/
+*.parquet
+*.csv
+*.json
+!config/*.json
+!config/*.yaml
+!config/*.yml
+
+# Spark
+metastore_db/
+derby.log
+spark-warehouse/
+
+# Delta Lake
+_delta_log/
+checkpoints/
+
+# Docker
+.docker/
+
+# AWS
+.aws/
+
+# Secrets
+.env
+*.pem
+*.key
+secrets/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Compiled files
+*.class
+*.jar
+*.war
+
+# Maven
+target/
+
+# Scala
+*.class
+*.log
+
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# Kafka
+kafka-logs/
+
+# Zookeeper
+zookeeper/
+
+# MinIO
+minio-data/

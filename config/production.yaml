@@ -1,0 +1,109 @@
+# Production Environment Configuration
+
+kafka:
+  bootstrap_servers:
+    - "kafka-1.streaming.internal:9092"
+    - "kafka-2.streaming.internal:9092"
+    - "kafka-3.streaming.internal:9092"
+  security_protocol: "SASL_SSL"
+  sasl_mechanism: "SCRAM-SHA-512"
+  producer_batch_size: 65536
+  producer_linger_ms: 10
+  producer_compression_type: "lz4"
+  producer_retries: 5
+  consumer_group_id: "video-streaming-prod"
+  consumer_max_poll_records: 1000
+  topics:
+    video_events:
+      partitions: 24
+      replication_factor: 3
+      cleanup_policy: "delete"
+      retention_ms: 604800000  # 7 days
+    user_interactions:
+      partitions: 16
+      replication_factor: 3
+      cleanup_policy: "delete"
+      retention_ms: 1209600000  # 14 days
+    ad_events:
+      partitions: 12
+      replication_factor: 3
+      cleanup_policy: "delete"
+      retention_ms: 2592000000  # 30 days
+    session_events:
+      partitions: 8
+      replication_factor: 3
+      cleanup_policy: "delete"
+      retention_ms: 7776000000  # 90 days
+
+spark:
+  app_name: "VideoStreamingLakehouse-Prod"
+  master: "yarn"
+  driver_memory: "8g"
+  driver_max_result_size: "4g"
+  executor_memory: "16g"
+  executor_cores: 4
+  executor_instances: 10
+  sql_shuffle_partitions: 400
+  sql_adaptive_enabled: true
+  sql_adaptive_coalesce_partitions_enabled: true
+  sql_adaptive_skew_join_enabled: true
+  streaming_trigger_interval: "10 seconds"
+  streaming_checkpoint_location: "s3a://video-streaming-lakehouse/checkpoints"
+
+aws:
+  region: "us-west-2"
+  s3_bucket: "video-streaming-lakehouse-prod"
+  s3_raw_prefix: "raw-data"
+  s3_processed_prefix: "processed-data"
+  s3_delta_prefix: "delta-tables"
+  s3_checkpoint_prefix: "checkpoints"
+  secrets_manager_enabled: true
+  secret_name: "video-streaming-lakehouse/prod/secrets"
+  kinesis_stream_name: "video-streaming-events-prod"
+  kinesis_shard_count: 20
+
+snowflake:
+  warehouse: "ANALYTICS_WH"
+  database: "VIDEO_STREAMING_PROD"
+  schema: "ANALYTICS"
+  warehouse_size: "LARGE"
+  auto_suspend: 300
+  auto_resume: true
+  connection_timeout: 60
+  network_timeout: 300
+
+delta_lake:
+  raw_table_path: "s3a://video-streaming-lakehouse-prod/delta-tables/raw/"
+  bronze_table_path: "s3a://video-streaming-lakehouse-prod/delta-tables/bronze/"
+  silver_table_path: "s3a://video-streaming-lakehouse-prod/delta-tables/silver/"
+  gold_table_path: "s3a://video-streaming-lakehouse-prod/delta-tables/gold/"
+  auto_optimize_enabled: true
+  z_order_columns:
+    video_events: ["user_id", "video_id", "event_timestamp"]
+    user_interactions: ["user_id", "content_id", "interaction_timestamp"]
+    ad_events: ["user_id", "ad_id", "event_timestamp"]
+    session_events: ["user_id", "session_id", "session_start"]
+  vacuum_retention_hours: 168  # 7 days
+  optimize_file_size_mb: 256
+  checkpoint_interval: 10
+
+monitoring:
+  prometheus_port: 9090
+  prometheus_enabled: true
+  grafana_url: "https://grafana.streaming.internal"
+  health_check_interval: 60
+  data_quality_threshold: 0.98
+  pipeline_latency_threshold: 180
+  alert_recipients:
+    - "data-team@company.com"
+    - "devops@company.com"
+
+dashboard:
+  tableau_server_url: "https://tableau.company.com"
+  tableau_site_id: "analytics"
+  automated_reports_enabled: true
+  report_schedule: "0 8 * * *"  # Daily at 8 AM
+  report_recipients:
+    - "executives@company.com"
+    - "product-team@company.com"
+    - "analytics-team@company.com"

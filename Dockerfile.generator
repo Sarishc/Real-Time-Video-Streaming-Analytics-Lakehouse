@@ -1,0 +1,16 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install kafka-python faker pydantic
+
+# Copy application files
+COPY demo.py .
+COPY config/ ./config/
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Run the data generator
+CMD ["python", "demo.py"]

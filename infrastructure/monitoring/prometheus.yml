@@ -1,0 +1,83 @@
+# Prometheus Configuration for Video Streaming Analytics
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Kafka Producer metrics
+  - job_name: 'kafka-producer'
+    static_configs:
+      - targets: ['data-generator:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Kafka Consumer metrics
+  - job_name: 'kafka-consumer'
+    static_configs:
+      - targets: ['kafka-consumer:8001']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Kafka JMX metrics
+  - job_name: 'kafka-jmx'
+    static_configs:
+      - targets: ['kafka:9997']
+    scrape_interval: 30s
+
+  # Spark Master metrics
+  - job_name: 'spark-master'
+    static_configs:
+      - targets: ['spark-master:8080']
+    metrics_path: /metrics/json
+    scrape_interval: 30s
+
+  # Spark Worker metrics
+  - job_name: 'spark-worker'
+    static_configs:
+      - targets: ['spark-worker:8081']
+    metrics_path: /metrics/json
+    scrape_interval: 30s
+
+  # MinIO metrics
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: /minio/v2/metrics/cluster
+    scrape_interval: 30s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # PostgreSQL metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+
+  # Custom application metrics
+  - job_name: 'video-streaming-app'
+    static_configs:
+      - targets: 
+        - 'data-generator:8000'
+        - 'kafka-consumer:8001'
+        - 'spark-streaming:8002'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s

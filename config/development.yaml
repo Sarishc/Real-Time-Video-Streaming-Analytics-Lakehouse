@@ -1,0 +1,70 @@
+# Development Environment Configuration
+
+kafka:
+  bootstrap_servers:
+    - "localhost:9092"
+  security_protocol: "PLAINTEXT"
+  producer_batch_size: 16384
+  producer_linger_ms: 5
+  consumer_group_id: "video-streaming-dev"
+  topics:
+    video_events:
+      partitions: 3
+      replication_factor: 1
+    user_interactions:
+      partitions: 2
+      replication_factor: 1
+    ad_events:
+      partitions: 2
+      replication_factor: 1
+    session_events:
+      partitions: 1
+      replication_factor: 1
+
+spark:
+  app_name: "VideoStreamingLakehouse-Dev"
+  master: "local[*]"
+  driver_memory: "2g"
+  executor_memory: "2g"
+  executor_cores: 2
+  executor_instances: 1
+  sql_shuffle_partitions: 50
+  streaming_trigger_interval: "5 seconds"
+  streaming_checkpoint_location: "./checkpoints"
+
+aws:
+  region: "us-west-2"
+  profile: "default"
+  s3_bucket: "video-streaming-lakehouse-dev"
+  s3_raw_prefix: "raw-data"
+  s3_processed_prefix: "processed-data"
+  s3_delta_prefix: "delta-tables"
+  secrets_manager_enabled: false
+
+snowflake:
+  account: "your-account.us-west-2"
+  warehouse: "COMPUTE_WH"
+  database: "VIDEO_STREAMING_DEV"
+  schema: "ANALYTICS"
+  warehouse_size: "XSMALL"
+  auto_suspend: 60
+
+delta_lake:
+  raw_table_path: "./data/delta-tables/raw/"
+  bronze_table_path: "./data/delta-tables/bronze/"
+  silver_table_path: "./data/delta-tables/silver/"
+  gold_table_path: "./data/delta-tables/gold/"
+  auto_optimize_enabled: false
+  vacuum_retention_hours: 24
+
+monitoring:
+  prometheus_port: 8000
+  prometheus_enabled: true
+  health_check_interval: 30
+  data_quality_threshold: 0.90
+  pipeline_latency_threshold: 600
+
+dashboard:
+  tableau_server_url: "http://localhost:8080"
+  powerbi_workspace_id: ""
+  automated_reports_enabled: false
