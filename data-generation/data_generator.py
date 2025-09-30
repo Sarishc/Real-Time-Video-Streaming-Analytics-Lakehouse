@@ -81,11 +81,6 @@ class VideoStreamingDataGenerator:
         self.num_content = num_content
         self.encoder = EventEncoder()
         
-        # Generate user profiles and content catalog
-        self.user_profiles = self._generate_user_profiles()
-        self.content_catalog = self._generate_content_catalog()
-        self.ad_catalog = self._generate_ad_catalog()
-        
         # Device and platform distributions (based on real-world data)
         self.device_distribution = {
             DeviceType.MOBILE: 0.45,
@@ -135,6 +130,11 @@ class VideoStreamingDataGenerator:
             }
         }
         
+        # Generate user profiles and content catalog
+        self.user_profiles = self._generate_user_profiles()
+        self.content_catalog = self._generate_content_catalog()
+        self.ad_catalog = self._generate_ad_catalog()
+        
         logger.info(f"Initialized generator with {num_users} users and {num_content} content items")
     
     def _generate_user_profiles(self) -> List[UserProfile]:
@@ -148,13 +148,15 @@ class VideoStreamingDataGenerator:
             
             # Subscription tier distribution (freemium model)
             tier_weights = [0.60, 0.25, 0.13, 0.02]  # Free, Basic, Premium, Enterprise
-            subscription_tier = np.random.choice(list(SubscriptionTier), p=tier_weights)
+            tier_choices = list(SubscriptionTier)
+            tier_idx = np.random.choice(len(tier_choices), p=tier_weights)
+            subscription_tier = tier_choices[tier_idx]
             
             # Device preference
-            preferred_device = np.random.choice(
-                list(self.device_distribution.keys()),
-                p=list(self.device_distribution.values())
-            )
+            device_choices = list(self.device_distribution.keys())
+            device_probs = list(self.device_distribution.values())
+            device_idx = np.random.choice(len(device_choices), p=device_probs)
+            preferred_device = device_choices[device_idx]
             
             preferred_platform = random.choice(self.platform_mapping[preferred_device])
             
@@ -258,10 +260,10 @@ class VideoStreamingDataGenerator:
             content_id = f"content_{uuid.uuid4().hex[:8]}"
             
             # Content type affects duration
-            content_type = np.random.choice(
-                list(self.content_type_distribution.keys()),
-                p=list(self.content_type_distribution.values())
-            )
+            content_choices = list(self.content_type_distribution.keys())
+            content_probs = list(self.content_type_distribution.values())
+            content_idx = np.random.choice(len(content_choices), p=content_probs)
+            content_type = content_choices[content_idx]
             
             if content_type == ContentType.MOVIE:
                 duration = int(np.random.normal(6600, 1800))  # ~110 min avg, 30 min std
@@ -399,10 +401,11 @@ class VideoStreamingDataGenerator:
             user_signup_date=user.signup_date
         )
         
-        events.append(session_start.dict())
+        events.append(session_start.model_dump())
         
         # Calculate session duration based on user patterns
-        base_duration = user.viewing_patterns['daily_watch_hours'] * 3600 / user.viewing_patterns['session_frequency']
+        session_freq = max(1, user.viewing_patterns['session_frequency'])  # Avoid division by zero
+        base_duration = user.viewing_patterns['daily_watch_hours'] * 3600 / session_freq
         session_duration = max(300, int(np.random.exponential(base_duration)))  # Min 5 minutes
         session_end_time = current_time + timedelta(seconds=session_duration)
         
@@ -457,7 +460,7 @@ class VideoStreamingDataGenerator:
             subscription_tier=user.subscription_tier
         )
         
-        events.append(session_end.dict())
+        events.append(session_end.model_dump())
         
         return events
     
@@ -471,8 +474,10 @@ class VideoStreamingDataGenerator:
         # Determine video quality
         quality_options = self.quality_by_device.get(user.preferred_device, 
                                                    {VideoQuality.Q_720P: 1.0})
-        video_quality = np.random.choice(list(quality_options.keys()), 
-                                       p=list(quality_options.values()))
+        quality_choices = list(quality_options.keys())
+        quality_probs = list(quality_options.values())
+        quality_idx = np.random.choice(len(quality_choices), p=quality_probs)
+        video_quality = quality_choices[quality_idx]
         
         # Video play event
         play_event = VideoEvent(
@@ -507,7 +512,7 @@ class VideoStreamingDataGenerator:
             bandwidth=random.uniform(5.0, 100.0)
         )
         
-        events.append(play_event.dict())
+        events.append(play_event.model_dump())
         current_time += timedelta(seconds=1)
         
         # Simulate playback with realistic patterns
@@ -529,94 +534,87 @@ class VideoStreamingDataGenerator:
             
             if random.random() > continue_probability:
                 # User stops watching
-                stop_event = VideoEvent(
-                    **play_event.dict(),
-                    event_type=EventType.VIDEO_STOP,
-                    playback_position=position,
-                    event_timestamp=current_time
-                )
-                events.append(stop_event.dict())
+                play_data = play_event.model_dump()
+                play_data['event_type'] = EventType.VIDEO_STOP
+                play_data['playback_position'] = position
+                play_data['event_timestamp'] = current_time
+                stop_event = VideoEvent(**play_data)
+                events.append(stop_event.model_dump())
                 break
             
             # Random events during playback
             watch_segment = random.randint(30, 300)  # 30s to 5min segments
-            position += watch_segment
+            position = min(position + watch_segment, content.duration)
             current_time += timedelta(seconds=watch_segment)
             watch_duration += watch_segment
             
             # Random pause/resume
             if random.random() < 0.1:  # 10% chance of pause
-                pause_event = VideoEvent(
-                    **play_event.dict(),
-                    event_type=EventType.VIDEO_PAUSE,
-                    playback_position=position,
-                    event_timestamp=current_time
-                )
-                events.append(pause_event.dict())
+                play_data = play_event.model_dump()
+                play_data['event_type'] = EventType.VIDEO_PAUSE
+                play_data['playback_position'] = position
+                play_data['event_timestamp'] = current_time
+                pause_event = VideoEvent(**play_data)
+                events.append(pause_event.model_dump())
                 
                 # Pause duration
                 pause_duration = random.randint(5, 120)
                 current_time += timedelta(seconds=pause_duration)
                 
                 # Resume
-                resume_event = VideoEvent(
-                    **play_event.dict(),
-                    event_type=EventType.VIDEO_PLAY,
-                    playback_position=position,
-                    event_timestamp=current_time
-                )
-                events.append(resume_event.dict())
+                play_data = play_event.model_dump()
+                play_data['event_type'] = EventType.VIDEO_PLAY
+                play_data['playback_position'] = position
+                play_data['event_timestamp'] = current_time
+                resume_event = VideoEvent(**play_data)
+                events.append(resume_event.model_dump())
             
             # Random seek
             if random.random() < 0.05:  # 5% chance of seek
                 seek_from = position
-                seek_to = random.randint(0, content.duration)
+                seek_to = random.randint(0, max(1, content.duration - 1))
                 
-                seek_event = VideoEvent(
-                    **play_event.dict(),
-                    event_type=EventType.VIDEO_SEEK,
-                    playback_position=seek_to,
-                    seek_from_position=seek_from,
-                    seek_to_position=seek_to,
-                    event_timestamp=current_time
-                )
-                events.append(seek_event.dict())
+                play_data = play_event.model_dump()
+                play_data['event_type'] = EventType.VIDEO_SEEK
+                play_data['playback_position'] = seek_to
+                play_data['seek_from_position'] = seek_from
+                play_data['seek_to_position'] = seek_to
+                play_data['event_timestamp'] = current_time
+                seek_event = VideoEvent(**play_data)
+                events.append(seek_event.model_dump())
                 position = seek_to
             
             # Buffer event (occasional)
             if random.random() < 0.02:  # 2% chance of buffering
-                buffer_event = VideoEvent(
-                    **play_event.dict(),
-                    event_type=EventType.VIDEO_BUFFER,
-                    playback_position=position,
-                    buffer_duration=random.uniform(1.0, 10.0),
-                    event_timestamp=current_time
-                )
-                events.append(buffer_event.dict())
+                play_data = play_event.model_dump()
+                play_data['event_type'] = EventType.VIDEO_BUFFER
+                play_data['playback_position'] = position
+                play_data['buffer_duration'] = random.uniform(1.0, 10.0)
+                play_data['event_timestamp'] = current_time
+                buffer_event = VideoEvent(**play_data)
+                events.append(buffer_event.model_dump())
             
             # Quality change (occasional)
             if random.random() < 0.03:  # 3% chance of quality change
                 old_quality = video_quality
                 video_quality = random.choice(list(VideoQuality))
                 
-                quality_event = VideoEvent(
-                    **play_event.dict(),
-                    event_type=EventType.VIDEO_QUALITY_CHANGE,
-                    playback_position=position,
-                    video_quality=video_quality,
-                    event_timestamp=current_time
-                )
-                events.append(quality_event.dict())
+                play_data = play_event.model_dump()
+                play_data['event_type'] = EventType.VIDEO_QUALITY_CHANGE
+                play_data['playback_position'] = position
+                play_data['video_quality'] = video_quality
+                play_data['event_timestamp'] = current_time
+                quality_event = VideoEvent(**play_data)
+                events.append(quality_event.model_dump())
         
         # Video completion
         if position >= content.duration * 0.95:  # Consider 95% as complete
-            complete_event = VideoEvent(
-                **play_event.dict(),
-                event_type=EventType.VIDEO_COMPLETE,
-                playback_position=content.duration,
-                event_timestamp=current_time
-            )
-            events.append(complete_event.dict())
+            play_data = play_event.model_dump()
+            play_data['event_type'] = EventType.VIDEO_COMPLETE
+            play_data['playback_position'] = content.duration
+            play_data['event_timestamp'] = current_time
+            complete_event = VideoEvent(**play_data)
+            events.append(complete_event.model_dump())
             completed = True
             watch_duration = content.duration
         
@@ -667,7 +665,7 @@ class VideoStreamingDataGenerator:
                 elif event_type == EventType.USER_SHARE:
                     interaction_event.share_platform = random.choice(['facebook', 'twitter', 'instagram', 'whatsapp'])
                 
-                events.append(interaction_event.dict())
+                events.append(interaction_event.model_dump())
         
         return events
     
@@ -710,32 +708,29 @@ class VideoStreamingDataGenerator:
             currency='USD'
         )
         
-        events.append(impression_event.dict())
+        events.append(impression_event.model_dump())
         
         # Ad interactions
         if random.random() < 0.02:  # 2% click-through rate
-            click_event = AdEvent(
-                **impression_event.dict(),
-                event_type=EventType.AD_CLICK,
-                click_position=random.randint(0, ad['duration'])
-            )
-            events.append(click_event.dict())
+            impression_data = impression_event.model_dump()
+            impression_data['event_type'] = EventType.AD_CLICK
+            impression_data['click_position'] = random.randint(0, ad['duration'])
+            click_event = AdEvent(**impression_data)
+            events.append(click_event.model_dump())
         
         if random.random() < 0.15:  # 15% skip rate
-            skip_event = AdEvent(
-                **impression_event.dict(),
-                event_type=EventType.AD_SKIP,
-                skip_position=random.randint(5, ad['duration'])
-            )
-            events.append(skip_event.dict())
+            impression_data = impression_event.model_dump()
+            impression_data['event_type'] = EventType.AD_SKIP
+            impression_data['skip_position'] = random.randint(5, ad['duration'])
+            skip_event = AdEvent(**impression_data)
+            events.append(skip_event.model_dump())
         else:
             # Ad completion
-            complete_event = AdEvent(
-                **impression_event.dict(),
-                event_type=EventType.AD_COMPLETE,
-                view_duration=ad['duration']
-            )
-            events.append(complete_event.dict())
+            impression_data = impression_event.model_dump()
+            impression_data['event_type'] = EventType.AD_COMPLETE
+            impression_data['view_duration'] = ad['duration']
+            complete_event = AdEvent(**impression_data)
+            events.append(complete_event.model_dump())
         
         return events
     
